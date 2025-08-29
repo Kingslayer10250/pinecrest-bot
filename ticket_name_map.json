@@ -1,0 +1,23 @@
+{
+  "ticket-relations_partnership": "partnership",
+  "ticket-relations_spotlight": "spotlight",
+  "ticket-relations_feedback": "feedback",
+  "ticket-relations_booster": "booster",
+  "ticket-operations_famactions": "family-actions",
+  "ticket-operations_rolealterations": "role-alteration",
+  "ticket-operations_findrole": "find-role",
+  "ticket-operations_roleappeal": "role-appeal",
+  "ticket-operations_roleapp": "role-app",
+  "ticket-staffing_hofapp": "hof-application",
+  "ticket-staffing_reportuser": "report-user",
+  "ticket-staffing_requestin": "request-in",
+  "ticket-staffing_strikeappeal": "strike-appeal",
+  "ticket-owner_reportadmin": "report-admin",
+  "ticket-owner_activityappeal": "activity-appeal",
+  "ticket-owner_adminappeal": "admin-appeal",
+  "ticket-owner_famapps": "family-application",
+  "ticket-owner_other": "other",
+  "ticket-owner_activitywaiver": "activity-waiver",
+  "ticket-owner_complaints": "complaints",
+  "ticket-appeals_ban": "ban-appeal"
+}

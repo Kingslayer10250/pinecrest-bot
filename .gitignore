@@ -1,0 +1,22 @@
+# Node modules (don't upload these)
+node_modules/
+
+# Environment variables (keep your tokens safe!)
+.env
+
+# Logs & debug stuff
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker build context cache (optional)
+*.local
+*.log
+docker-compose.override.yml
+
+# VSCode settings (optional)
+.vscode/
+
+# OS clutter
+.DS_Store
+Thumbs.db

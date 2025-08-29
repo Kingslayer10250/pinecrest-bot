@@ -1,0 +1,22 @@
+{
+  "name": "Pinecrest Bot",
+  "version": "1.0.0",
+  "description": "PineBot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "postinstall": "node deploy-commands.js"
+  },
+  "author": "Kingslayer",
+  "license": "MIT",
+  "engines": {
+    "node": "18.x"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1",
+    "discord-html-transcripts": "*",
+    "node-cron": "*",
+    "better-sqlite3": "^12.2.0"
+  }
+}

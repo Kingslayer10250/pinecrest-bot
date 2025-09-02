@@ -10,9 +10,8 @@ function createRelationsSetupEmbed() {
             Open a **partnerships** ticket if you would like to form a partnership between Pinecrest and the server you're representing.
             *Our partnership requirements can be found in <#1270004249794969611>!*
 
-            <a:2smallflowers:1311063053646692454> __𝑴𝒆𝒎𝒃𝒆𝒓 𝑺𝒑𝒐𝒕𝒍𝒊𝒈𝒉𝒕__
-            Open a **member spotlight** ticket if you'd like to nominate a server member for our monthly spotlight.
-            *Please note that you cannot nominate yourself.*
+            <a:2smallflowers:1311063053646692454> __𝑷𝒐𝒊𝒏𝒕𝒔/𝑪𝒍𝒂𝒊𝒎 𝑷𝒓𝒊𝒛𝒆__
+            Open a **points/claim prize** ticket if you'd like to ask about points or claim a prize. Remember you can only claim one prize per month, choose carefully!
 
             <a:2pinkflowers:1274490876642721904> __𝑺𝒆𝒓𝒗𝒆𝒓 𝑭𝒆𝒆𝒅𝒃𝒂𝒄𝒌__
             Open a **server feedback** ticket if you would like to submit feedback for any aspect of the server.

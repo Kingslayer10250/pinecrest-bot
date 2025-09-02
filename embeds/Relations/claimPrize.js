@@ -2,17 +2,16 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 
 function createMemberSpotlightEmbed(userId, roleId) {
     const embed = new EmbedBuilder()
-        .setTitle('𝑴𝒆𝒎𝒃𝒆𝒓 𝑺𝒑𝒐𝒕𝒍𝒊𝒈𝒉𝒕')
+        .setTitle('𝑷𝒐𝒊𝒏𝒕𝒔/𝑪𝒍𝒂𝒊𝒎 𝑷𝒓𝒊𝒛𝒆')
         .setDescription(`
-            Thank you for opening a **member spotlight** ticket! While you're waiting for a response, please fill out the following template;
+            Thank you for opening a **points/claim prize** ticket! If you're here to ask about points, please ask your question and wait for an admin to respond. If you're here to claim a prize with your points, please fill out the following template;
 
             ═══════════════════
 
             **Your Discord Username:**
             **Your Discord ID:**
-            **Who are you nominating?:**
-            **Reason for nominating:**
-            -# Please remember you cannot nominate yourself.
+            **Which prize are you claiming?:**
+            *Please remember you can only claim one prize per month!*
 
             ═══════════════════
 
@@ -35,4 +34,4 @@ function createMemberSpotlightEmbed(userId, roleId) {
     return { embed, components: [closeButton] };
 }
 
-module.exports = { createMemberSpotlightEmbed };
+module.exports = { createclaimPrizeEmbed };

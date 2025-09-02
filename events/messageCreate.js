@@ -256,7 +256,7 @@ module.exports = {
                 requestin: 'staffing',
                 strikeappeal: 'staffing',
                 partnership: 'relations',
-                spotlight: 'relations',
+                claimprize: 'relations',
                 feedback: 'relations',
                 booster: 'relations',
                 reportadmin: 'ownership',

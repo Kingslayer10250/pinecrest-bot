@@ -43,7 +43,7 @@ const { createActivityWaiverEmbed } = require('../embeds/Ownership/activityWaive
 const { createComplaintsEmbed } = require('../embeds/Ownership/complaints');
 
 const { createBoosterRoleEmbed } = require('../embeds/Relations/boosterRole');
-const { createMemberSpotlightEmbed } = require('../embeds/Relations/memberSpotlight');
+const { createclaimPrizeEmbed } = require('../embeds/Relations/claimPrize');
 const { createPartnershipsEmbed } = require('../embeds/Relations/partnerships');
 const { createServerFeedbackEmbed } = require('../embeds/Relations/serverFeedback');
 
@@ -458,7 +458,7 @@ module.exports = {
         'ticket-staffing_strikeappeal': createStrikeAppealEmbed,
 
         'ticket-relations_partnership': createPartnershipsEmbed,
-        'ticket-relations_spotlight': createMemberSpotlightEmbed,
+        'ticket-relations_claimprize': createclaimPrizeEmbed,
         'ticket-relations_feedback': createServerFeedbackEmbed,
         'ticket-relations_booster': createBoosterRoleEmbed,
 

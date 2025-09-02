@@ -30,8 +30,8 @@ function createRelationsSetupEmbed() {
             .setEmoji('1283815198137913404')
             .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
-            .setCustomId('ticket-relations_spotlight')
-            .setLabel('Member Spotlight')
+            .setCustomId('ticket-relations_claimprize')
+            .setLabel('Points/Claim Prize')
             .setEmoji('1311063053646692454')
             .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()

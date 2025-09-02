@@ -1,6 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
-function createMemberSpotlightEmbed(userId, roleId) {
+function createclaimPrizeEmbed(userId, roleId) {
     const embed = new EmbedBuilder()
         .setTitle('𝑷𝒐𝒊𝒏𝒕𝒔/𝑪𝒍𝒂𝒊𝒎 𝑷𝒓𝒊𝒛𝒆')
         .setDescription(`

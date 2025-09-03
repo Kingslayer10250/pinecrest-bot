@@ -27,6 +27,8 @@ const LOG_CHANNEL_MAP = {
   }
 };
 
+const { adminRoles } = require('../rolePermissions');
+
 
 const { createTranscript } = require('discord-html-transcripts');
 
@@ -149,6 +151,12 @@ function safeDeleteChannel(channel, delayMs = 0) {
   }, delayMs);
 }
 
+function isStaffMember(member) {
+  const deptHit = Object.values(DEPARTMENT_ROLES).some(id => member.roles.cache.has(id));
+  const adminHit = adminRoles.some(id => member.roles.cache.has(id));
+  return deptHit || adminHit;
+}
+
 module.exports = {
   name: Events.InteractionCreate,
 
@@ -171,6 +179,11 @@ module.exports = {
       const customId = interaction.customId;
 
       if (customId === 'close-ticket') {
+
+        if (!isStaffMember(interaction.member)) {
+          return interaction.reply({ content: 'Only staff can close tickets.', flags: 64 });
+        }
+
         const confirmRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId('confirm-close')
@@ -185,6 +198,11 @@ module.exports = {
       }
 
       if (customId === 'confirm-close') {
+
+        if (!isStaffMember(interaction.member)) {
+          return interaction.reply({ content: 'Only staff can close tickets.', flags: 64 });
+        }
+
         try {
           if (!interaction.deferred && !interaction.replied) {
             await interaction.deferReply({ flags: 64 });
@@ -353,8 +371,8 @@ module.exports = {
         const categoryID = CATEGORY_MAP[interaction.guild.id];
         const permissionOverwrites = [
           { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-          { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-          { id: roleId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+          { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages. PermissionsBitField.Flags.AttachFiles, PermissionsBitField.Flags.EmbedLinks] },
+          { id: roleId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles, PermissionsBitField.Flags.EmbedLinks] }
         ];
 
         const channel = await interaction.guild.channels.create({
@@ -419,11 +437,11 @@ module.exports = {
         },
         {
           id: interaction.user.id,
-          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
+          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles, PermissionsBitField.Flags.EmbedLinks]
         },
         {
           id: roleId,
-          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
+          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AttachFiles, PermissionsBitField.Flags.EmbedLinks]
         }
       ];
 

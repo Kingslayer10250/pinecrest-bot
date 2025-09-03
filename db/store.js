@@ -62,7 +62,7 @@ function recordTicketOpen({ ticket_id, guild_id, channel_id, name, department, o
     const now = Date.now();
     upsertTicket.run({
         ticket_id, guild_id, channel_id, name, department, opener_id,
-        claimed_by: null;
+        claimed_by: null,
         tags_json: '["Unclaimed", "General"]',
         created_at: now,
         updated_at: now

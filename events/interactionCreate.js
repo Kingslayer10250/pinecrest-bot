@@ -1,5 +1,7 @@
 const { Events, PermissionsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
+const Store = require('../db/store');
+
 const DEPARTMENT_ROLES = {
   relations: '1278693098469457920',
   operations: '1278693094945984644',
@@ -60,8 +62,6 @@ const PRIVATE_PREFIX_TO_DEPT = {
   'private-staff': 'staffing'
 };
 
-const fs = require('fs');
-const path = require('path');
 const ticketNameMap = require('../ticket_name_map.json');
 
 // --- Helpers ---
@@ -235,6 +235,8 @@ module.exports = {
             }
           }
 
+          Store.markResolved({ ticket_id: interaction.channel.id });
+
           await interaction.editReply({ content: `Closing Ticket... <@${interaction.user.id}>` });
           safeDeleteChannel(interaction.channel, 3000);
           return;
@@ -282,6 +284,7 @@ module.exports = {
 
           await interaction.update({ components: newComponents });
           await interaction.channel.send(`Ticket claimed by <@${member.id}>`);
+          Store.markClaim({ ticket_id: interaction.channel.id, claimed_by: interaction.member.id });
         } catch (err) {
           console.error('Error claiming:', err);
           if (interaction.deferred || interaction.replied) {
@@ -319,6 +322,7 @@ module.exports = {
 
           await interaction.message.edit({ components: newComponents });
           await interaction.channel.send('Ticket unclaimed.');
+          Store.markUnclaim({ ticket_id: interaction.channel.id });
         } catch (err) {
           console.error('Error unclaiming:', err);
           if (interaction.deferred || interaction.replied) {
@@ -340,17 +344,7 @@ module.exports = {
           return interaction.reply({ content: `You need the ${dept} role to open this`, flags: 64 });
         }
 
-        const counterPath = path.join(__dirname, '..', 'ticket-counter.json');
-        let ticketNumber = 1;
-        if (fs.existsSync(counterPath)) {
-          const raw = fs.readFileSync(counterPath);
-          const data = JSON.parse(raw);
-          ticketNumber = data.counter || 1;
-          data.counter = ticketNumber + 1;
-          fs.writeFileSync(counterPath, JSON.stringify(data, null, 2));
-        } else {
-          fs.writeFileSync(counterPath, JSON.stringify({ counter: 2 }, null, 2));
-        }
+        const ticketNumber = Store.nextTicketNumber();
 
         const channelName = `private-${dept}-${ticketNumber.toString().padStart(3, '0')}`;
 
@@ -368,6 +362,15 @@ module.exports = {
           type: 0,
           parent: categoryID,
           permissionOverwrites
+        });
+
+        Store.recordTicketOpen({
+          ticket_id: channel.id,
+          guild_id: interaction.guild.id,
+          channel_id: channel.id,
+          name: channel.name,
+          department: dept,
+          opener_id: interaction.user.id
         });
 
         await channel.send({ content: `<@${interaction.user.id}> <@&${roleId}>` })
@@ -402,17 +405,7 @@ module.exports = {
 
       const username = interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-      const counterPath = path.join(__dirname, '..', 'ticket-counter.json');
-      let ticketNumber = 1;
-      if (fs.existsSync(counterPath)) {
-        const raw = fs.readFileSync(counterPath);
-        const data = JSON.parse(raw);
-        ticketNumber = data.counter || 1;
-        data.counter = ticketNumber + 1;
-        fs.writeFileSync(counterPath, JSON.stringify(data, null, 2));
-      } else {
-        fs.writeFileSync(counterPath, JSON.stringify({ counter: 2 }, null, 2));
-      }
+      const ticketNumber = Store.nextTicketNumber();
 
       const channelName = `${channelShort}-${ticketNumber.toString().padStart(3, '0')}`;
 
@@ -439,6 +432,15 @@ module.exports = {
         type: 0,
         parent: categoryID,
         permissionOverwrites
+      });
+
+      Store.recordTicketOpen({
+        ticket_id: channel.id,
+        guild_id: interaction.guild.id,
+        channel_id: channel.id,
+        name: channel.name,
+        department,
+        opener_id: interaction.user.id
       });
 
       await channel.send({ content: `<@${interaction.user.id}> <@&${roleId}>` }).then(msg => {

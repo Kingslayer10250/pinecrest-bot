@@ -512,7 +512,7 @@ module.exports = {
 
       if (logChannel) {
         await logChannel.send({
-          content: `**Ticket Opened:** \`${channelName}\` by ${interaction.user.id}`
+          content: `**Ticket Opened:** \`${channelName}\` by ${interaction.user.id} (${interaction.user.tag})`
         });
       }
 

@@ -157,6 +157,36 @@ function isStaffMember(member) {
   return deptHit || adminHit;
 }
 
+async function fetchFreshChannel(interaction) {
+  try {
+    const ch = await interaction.client.channels.fetch(interaction.channelId, { force: true });
+    return ch?.isTextBased?.() ? ch : null;
+  } catch { return null; }
+}
+
+function buildButtons({ claimed }) {
+  const row = new ActionRowBuilder();
+  if (claimed) {
+    row.addComponents(
+      new ButtonBuilder().setCustomId('unclaim-ticket').setLabel('Unclaim Ticket').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('close-ticket').setLabel('Close Ticket').setStyle(ButtonStyle.Danger),
+    );
+  } else {
+    row.addComponents(
+      new ButtonBuilder().setCustomId('claim-ticket').setLabel('Claim Ticket').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('close-ticket').setLabel('Close Ticket').setStyle(ButtonStyle.Secondary),
+    );
+  }
+  return [row];
+}
+
+const busy = new Map();
+async function withChannelLock(channelId, fn) {
+  if (busy.get(channelId)) return 'BUSY';
+  busy.set(channelId, true);
+  try { return await fn(); } finally { busy.delete(channelId); }
+}
+
 module.exports = {
   name: Events.InteractionCreate,
 
@@ -270,85 +300,64 @@ module.exports = {
       }
 
       if (customId === 'claim-ticket') {
-        const member = interaction.member;
-        const currentTopic = interaction.channel.topic;
-
-        const allowedRoles = ['1269768427925405837', '1311069586522640394', '1370206192101752974', '1283865189778980934', '1269768428516806686', '1340771352923213865'];
-        const hasAccess = member.roles.cache.some(role => allowedRoles.includes(role.id));
-
-        if (!hasAccess) {
-          return interaction.reply({ content: 'You do not have permission to claim this ticket.', flags: 64});
+        if (!isStaffMember(interaction.member)) {
+          return interaction.reply({ content: 'You do not have permission to claim this ticket.', flags: 64 });
         }
 
-        if (currentTopic && currentTopic.startsWith('Claimed by')) {
-          return interaction.reply({ content: `This ticket is already claimed (${currentTopic}).`, flags: 64});
-        }
+        const res = await withChannelLock(interaction.channelId, async () => {
+          try { await interaction.deferUpdate(); } catch {}
 
-        try {
-          await interaction.channel.setTopic(`Claimed by ${member.user.tag}`);
+          const ch = await fetchFreshChannel(interaction);
+          if (!ch) return interaction.followUp({ content: 'Channel Unavailable.', flags: 64 });
 
-          const newComponents = [
-            new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId('unclaim-ticket')
-                .setLabel('Unclaim Ticket')
-                .setStyle(ButtonStyle.Secondary),
-              new ButtonBuilder()
-                .setCustomId('close-ticket')
-                .setLabel('Close Ticket')
-                .setStyle(ButtonStyle.Danger)
-            )
-          ];
+          try { await interaction.message.edit({ components: buildButtons({ claimed: true }) }); } catch {}
 
-          await interaction.update({ components: newComponents });
-          await interaction.channel.send(`Ticket claimed by <@${member.id}>`);
-          Store.markClaim({ ticket_id: interaction.channel.id, claimed_by: interaction.member.id });
-        } catch (err) {
-          console.error('Error claiming:', err);
-          if (interaction.deferred || interaction.replied) {
-            await interaction.followUp({ content: 'Something went wrong while claiming.', flags: 64 });
-          } else {
-            await interaction.reply({ content: 'Something went wrong while claiming.', flags: 64 });
+          try {
+            await ch.setTopic(`Claimed by ${interaction.member.user.tag}`);
+            await ch.send(`Ticket claimed by ${interaction.member.user.tag}`);
+            Store.markClaim({ ticket_id: ch.id, claimed_by: interaction.member.id });
+          } catch (err) {
+            console.error('Claim error', { ch: ch_id, user: interaction.user.id }, err);
+
+            try { await interaction.message.edit({ components: buildButtons({ claimed: false }) }); } catch {}
+            return interaction.followUp({ content: 'Something went wrong while claiming.', flags: 64 });
           }
+        });
+
+        if (res === 'BUSY') {
+          return interaction.reply({ content: 'Another action is in progress on this ticket. Try again.', flags: 64 });
         }
+        return;
       }
 
       if (customId === 'unclaim-ticket') {
-        const allowedRoles = ['1269768427925405837', '1311069586522640394', '1370206192101752974', '1283865189778980934', '1269768428516806686', '1340771352923213865'];
-        const hasAccess = interaction.member.roles.cache.some(role => allowedRoles.includes(role.id));
-
-        if (!hasAccess) {
-          return interaction.reply({ content: 'You do not have permission to unclaim this ticket', flags: 64 });
+        if (!isStaffMember(interaction.member)) {
+          return interaction.reply({ content: 'You do not have permission to unclaim this ticket.', flags: 64 });
         }
 
-        try {
-          await interaction.deferUpdate();
-          await interaction.channel.setTopic(null);
+        const res = await withChannelLock(interaction.channelId, async () => {
+          try { await interaction.deferUpdate(); } catch {}
 
-          const newComponents = [
-            new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId('claim-ticket')
-                .setLabel('Claim Ticket')
-                .setStyle(ButtonStyle.Secondary),
-              new ButtonBuilder()
-                .setCustomId('close-ticket')
-                .setLabel('Close Ticket')
-                .setStyle(ButtonStyle.Danger)
-            )
-          ];
+          const ch = await fetchFreshChannel(interaction);
+          if (!ch) return interaction.followUp({ content: 'Channel unavailable.', flags: 64 });
 
-          await interaction.message.edit({ components: newComponents });
-          await interaction.channel.send('Ticket unclaimed.');
-          Store.markUnclaim({ ticket_id: interaction.channel.id });
-        } catch (err) {
-          console.error('Error unclaiming:', err);
-          if (interaction.deferred || interaction.replied) {
-            await interaction.followUp({ content: 'Something went wrong while unclaiming.', flags: 64 });
-          } else {
-            await interaction.reply({ content: 'Something went wrong while unclaiming.', flags: 64 });
+          try { await interaction.message.edit({ compoennts: buildButtons({ claimed: false }) }); } catch{}
+
+          try {
+            await ch.setTopic(null);
+            await ch.send('Ticket unclaimed,');
+            Store.markUnclaim({ ticket_id: ch.id });
+          } catch (err) {
+            console.error('Unclaim error', { ch: ch.id, user: interaction.user.id }, err);
+            try { await interaction.message.edit({ components: buildButtons({ claimed: true }) }); } catch{}
+            return interaction.followUp({ content: 'Something went wrong while unclaiming,', flags: 64 });
           }
+        });
+
+        if (res === 'BUSY') {
+          return interaction.reply({ content: 'Another action is in progress on this ticket. Try again.', flags: 64 });
         }
+        return;
       }
 
       if (customId === 'open-private-ops' || customId === 'open-private-staff') {

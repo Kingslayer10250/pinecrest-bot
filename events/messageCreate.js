@@ -75,7 +75,7 @@ module.exports = {
 
 
         // Stupid Fun 
-        if (message.content === `<@$968999850203050014>`) {
+        if (message.content === `<@968999850203050014>`) {
             await message.channel.send(`Hello`);
             return;
         }

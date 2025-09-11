@@ -1,7 +1,7 @@
 {
-  "name": "Pinecrest Bot",
+  "name": "pinecrest-bot",
   "version": "1.0.0",
-  "description": "PineBot",
+  "description": "Pinebot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -13,10 +13,22 @@
     "node": "18.x"
   },
   "dependencies": {
+    "better-sqlite3": "^12.2.0",
+    "discord-html-transcripts": "*",
     "discord.js": "^14.14.1",
     "dotenv": "^16.3.1",
-    "discord-html-transcripts": "*",
-    "node-cron": "*",
-    "better-sqlite3": "^12.2.0"
+    "node-cron": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kingslayer10250/pinecrest-bot.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/Kingslayer10250/pinecrest-bot/issues"
+  },
+  "homepage": "https://github.com/Kingslayer10250/pinecrest-bot#readme",
+  "devDependencies": {
+    "eslint": "^9.35.0"
   }
 }

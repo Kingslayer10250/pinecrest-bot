@@ -75,16 +75,9 @@ module.exports = {
 
 
         // Stupid Fun 
-        if (message.content === '!amelie') {
-            const targetUserId = '1203799330109136990';
-            await message.delete().catch(() => {});
-            await message.channel.send(`BURNOUT ALERT: <@${targetUserId}>, Amelie you are on the fence of being timed out. Take a BREAK!!`);
+        if (message.content === `<@$968999850203050014>`) {
+            await message.channel.send(`Hello`);
             return;
-        }
-
-        const generalChannelId = '1269847330132197406';
-        if (message.channel.id === generalChannelId && message.content.toLowerCase().includes('2+2=2')) {
-            await message.reply({stickers: ['1386426316479397950']} );
         }
 
         // === Pinebot Moderation ===

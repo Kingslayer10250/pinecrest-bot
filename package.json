@@ -27,8 +27,5 @@
   "bugs": {
     "url": "https://github.com/Kingslayer10250/pinecrest-bot/issues"
   },
-  "homepage": "https://github.com/Kingslayer10250/pinecrest-bot#readme",
-  "devDependencies": {
-    "eslint": "^9.35.0"
-  }
+  "homepage": "https://github.com/Kingslayer10250/pinecrest-bot#readme"
 }

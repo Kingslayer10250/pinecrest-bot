@@ -66,6 +66,9 @@ const PRIVATE_PREFIX_TO_DEPT = {
 
 const ticketNameMap = require('../ticket_name_map.json');
 
+const SENIOR_ROLE_ID = '1283865189778980934';
+const OWNERSHIP_ROLE_ID = '1378470067892912209';
+
 // --- Helpers ---
 
 const truncate = (s, n) => (s && s.length > n ? s.slice(0, n) + '...' : s || '');
@@ -196,6 +199,47 @@ function setRowDisabled(interaction, disabled) {
   return interaction.message.edit({ components: rows });
 }
 
+function resolveDepartmentFromChannelName(channelName) {
+  channelName = channelName.toLowerCase();
+  const match = Object.entries(ticketNameMap).find(([, short]) => channelName.startsWith(short));
+  if (match) {
+    let dept = match[0].split('_')[0].replace('ticket-', '');
+    if (dept === 'owner') dept = 'ownership';
+    return dept;
+  }
+  if (channelName.startsWith('private-operations-')) return 'operations';
+  if (channelName.startsWith('private-staffing-')) return 'staffing';
+  const maybe = Object.keys(DEPARTMENT_ROLES).find(b => channelName.startsWith(d));
+  return maybe || null;
+}
+
+async function applyClaimOverwrites(ch, {
+  departmentRoleId,
+  claimerId,
+  seniorRoleId = SENIOR_ROLE_ID,
+  ownershipRoleId = OWNERSHIP_ROLE_ID
+}) {
+  await ch.permissionOverwrites.edit(departmentRoleId, { SendMessages: false }).catch(() => {});
+
+  await ch.permissionOverwrites.edit(claimerId, { SendMessages: true }).catch(() => {});
+
+  await ch.permissionOverwrites.edit(seniorRoleId, { SendMessages: true }).catch(() => {});
+  await ch.permissionOverwrites.edit(ownershipRoleId, { SendMessages: true }).catch(() => {});
+}
+
+async function applyUnclaimOverwrites(ch, {
+  departmentRoleId,
+  claimerId,
+  seniorRoleId = SENIOR_ROLE_ID,
+  ownershipRoleId = OWNERSHIP_ROLE_ID
+}) {
+  await ch.permissionOverwrites.edit(departmentRoleId, { SendMessages: true }).catch(() => {});
+
+  await ch.permissionOverwrites.edit(claimerId, { SendMessages: null }).catch(() => {});
+  await ch.permissionOverwrites.edit(seniorRoleId, { SendMessages: null }).catch(() => {});
+  await ch.permissionOverwrites.edit(ownershipRoleId, { SendMessages: null }).catch(() => {});
+}
+
 module.exports = {
   name: Events.InteractionCreate,
 
@@ -314,30 +358,37 @@ module.exports = {
         }
 
         if (busy.get(interaction.channelId)) {
-          return interaction.reply({ content: 'Another action is in progress on this ticket. Try again.', flags: 64 });
+          return interaction.reply({ content: 'Another action is in profress on this ticket. Try again in a moment.', flags: 64 });
         }
         busy.set(interaction.channelId, true);
 
         try {
-          await setRowDisabled(interaction, true).catch(() => {});
-
           await interaction.update({ components: buildButtons({ claimed: true }) });
 
-          const ch = await fetchFreshChannel(interaction);
-          if (!ch) return interaction.followUp({ content: 'Channel unavailable', flags: 64 });
+          const ch = await interaction.client.channels.fetch(interaction.channelId).catch(() => null);
+          if (!ch?.isTextBased?.()) {
+            return interaction.followUp({ content: 'Channel Unavailable.', flags: 64 });
+          }
 
-          await Promise.all([
-            ch.setTopic(`Claimed by ${interaction.member.user.tag}`),
-            ch.send(`Ticket claimed by <@${interaction.member.id}>`),
-          ]);
+          const dept = resolveDepartmentFromChannelName(ch.name);
+          const departmentRoleId = dept ? DEPARTMENT_ROLES[dept] : null;
+          if (!departmentRoleId) {
+            await ch.permissionOverwrites.edit(interaction.member.id, { SendMessages: true }).catch(() => {});
+          } else {
+            await applyClaimOverwrites(ch, {
+              departmentRoleId,
+              claimerId: interaction.member.id
+            });
+          }
+
+          await ch.send(`Ticket claimed by <@${interaction.member.id}>`).catch(() => {});
           Store.markClaim({ ticket_id: ch.id, claimed_by: interaction.member.id });
         } catch (err) {
           console.error('Claim error', { ch: interaction.channelId, user: interaction.user.id }, err);
 
           await interaction.message.edit({ components: buildButtons({ claimed: false }) }).catch(() => {});
-          await interaction.followUp({ content: 'Something went wrong while claiming.', flags: 64 }).catch(() => {});
+          await interaction.followUp({ content: 'Could not claim this ticket.', flags: 64 }).catch(() => {});
         } finally {
-          await setRowDisabled(interaction, false).catch(() => {});
           busy.delete(interaction.channelId);
         }
         return;
@@ -353,27 +404,35 @@ module.exports = {
         }
         busy.set(interaction.channelId, true);
 
-        try {
-          await setRowDisabled(interaction, true).catch(() => {});
-          await interaction.update({ components: buildButtons({ claimed: false }) });
+       try {
+        await interaction.update({ components: buildButtons({ claimed: false }) });
 
-          const ch = await fetchFreshChannel(interaction);
-          if (!ch) return interaction.followUp({ content: 'Channel unavailable', flags: 64 });
-
-          await Promise.all([
-            ch.setTopic(null),
-            ch.send('Ticket unclaimed.'),
-          ]);
-          Store.markUnclaim({ ticket_id: ch.id });
-        } catch (err) {
-          console.error('Unclaim error', { ch: interaction.channelId, user: interaction.user.id }, err);
-          await interaction.message.edit({ components: buildButtons({ claimed: true }) }).catch(() => {});
-          await interaction.message.followUp({ content: 'Something went wrong while unclaiming', flags: 64 }).catch(() => {});
-        } finally {
-          await setRowDisabled(interaction, false).catch(() => {});
-          busy.delete(interaction.channelId);
+        const ch = await interaction.client.channels.fetch(interaction.channelId).catch(() => null);
+        if (!ch?.isTextBased?.()) {
+          return interaction.followUp({ content: 'Channel unavailable', flags: 64 });
         }
-        return;
+
+        const dept = resolveDepartmentFromChannelName(ch.name);
+        const departmentRoleId = dept ? DEPARTMENT_ROLES[dept] : null;
+
+        if (departmentRoleId) {
+          await applyUnclaimOverwrites(ch, {
+            departmentRoleId,
+            claimerId: interaction.member.id
+          });
+        }
+
+        await ch.send('Ticket unclaimed.').catch(() => {});
+        Store.markUnclaim({ ticket_id: ch.id });
+       } catch (err) {
+        console.error('Unclaim error', { ch: interaction.channelId, user: interaction.user.id }, err);
+
+        await interaction.message.edit({ components: buildButtons({ claimed: true }) }).catch(() => {});
+        await interaction.followUp({ content: 'Could not unclaim this ticket.', flags: 64 }).catch(() => {});
+       } finally {
+        busy.delete(interaction.channelId);
+       }
+       return;
       }
 
       if (customId === 'open-private-ops' || customId === 'open-private-staff') {

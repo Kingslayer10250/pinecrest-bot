@@ -317,7 +317,7 @@ module.exports = {
             await ch.send(`Ticket claimed by ${interaction.member.user.tag}`);
             Store.markClaim({ ticket_id: ch.id, claimed_by: interaction.member.id });
           } catch (err) {
-            console.error('Claim error', { ch: ch_id, user: interaction.user.id }, err);
+            console.error('Claim error', { ch: ch.id, user: interaction.user.id }, err);
 
             try { await interaction.message.edit({ components: buildButtons({ claimed: false }) }); } catch {}
             return interaction.followUp({ content: 'Something went wrong while claiming.', flags: 64 });
@@ -341,7 +341,7 @@ module.exports = {
           const ch = await fetchFreshChannel(interaction);
           if (!ch) return interaction.followUp({ content: 'Channel unavailable.', flags: 64 });
 
-          try { await interaction.message.edit({ compoennts: buildButtons({ claimed: false }) }); } catch{}
+          try { await interaction.message.edit({ components: buildButtons({ claimed: false }) }); } catch{}
 
           try {
             await ch.setTopic(null);

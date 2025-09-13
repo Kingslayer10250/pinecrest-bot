@@ -250,11 +250,28 @@ module.exports = {
       const command = interaction.client.commands.get(interaction.commandName);
       if (!command) return;
 
+      const t0 = Date.now();
       try {
         await command.execute(interaction);
+
+        const { logCommand } = require('../utils/logger');
+        await logCommand(interaction, { status: 'success', durationMs: Date.now() - t0 });
+
       } catch (error) {
         console.error('Command execution error:', error);
-        await interaction.reply({ content: 'There was an error executing this command.', flags: 64 });
+
+        try {
+          if (interaction.deferred || interaction.replied) {
+            await interaction.followUp({ content: 'There was an error executing this command.', flags: 64 });
+          } else {
+            await interaction.reply({ content: 'There was an error executing this command.', flags: 64 });
+          }
+        } catch { /* noop */ }
+
+        try {
+          const { logCommand } = require('../utils/logger');
+          await logCommand(interaction, { status: 'error', error, durationMs: Date.now() - t0 });
+        } catch { /* noop */ }
       }
     }
 

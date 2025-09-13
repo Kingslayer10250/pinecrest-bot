@@ -2,7 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 
 const COMMAND_LOG_CHANNEL_ID = '1359340211531944026';
 
-function formatOptions(option = []) {
+function formatOptions(options = []) {
     const parts = [];
     for (const opt of options) {
         if (opt.type === 1 /* SUB_COMMAND */ || opt.type === 2 /* SUB_COMMAND_GROUP */) {

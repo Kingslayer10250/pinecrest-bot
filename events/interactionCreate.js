@@ -84,6 +84,35 @@ function embedToText(e) {
   return `[Embed ${bits.join(' | ')}]`;
 }
 
+const closeLocks = new Map();
+
+async function withCloseLock(channelId, fn) {
+  if (closeLocks.get(channelId)) return false;
+  closeLocks.set(channelId, true);
+  try { await fn(); } finally { closeLocks.delete(channelId); }
+  return true;
+}
+
+async function fetchFreshChannelById(client, channelId) {
+  try {
+    const ch = await client.channels.fetch(channelId, { force: true });
+    return ch?.isTextBased?.() ? ch : null;
+  } catch {
+    return null;
+  }
+}
+
+function disableAllButtonsOnMessage(message) {
+  try {
+    const rows = message.components?.map(r => {
+      const row = ActionRowBuilder.from(r);
+      row.components = row.components.map(b => ButtonBuilder.from(b).setDisabled(true));
+      return row;
+    }) || [];
+    return message.edit({ components: rows }).catch(() => {});
+  } catch { /* noop */ }
+}
+
 function formatMessageForTranscript(msg) {
   try {
     const parts = [];
@@ -209,7 +238,7 @@ function resolveDepartmentFromChannelName(channelName) {
   }
   if (channelName.startsWith('private-operations-')) return 'operations';
   if (channelName.startsWith('private-staffing-')) return 'staffing';
-  const maybe = Object.keys(DEPARTMENT_ROLES).find(b => channelName.startsWith(d));
+  const maybe = Object.keys(DEPARTMENT_ROLES).find(d => channelName.startsWith(d));
   return maybe || null;
 }
 
@@ -284,6 +313,8 @@ module.exports = {
           return interaction.reply({ content: 'Only staff can close tickets.', flags: 64 });
         }
 
+        await disableAllButtonsOnMessage(interaction.message);
+
         const confirmRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
             .setCustomId('confirm-close')
@@ -303,68 +334,77 @@ module.exports = {
           return interaction.reply({ content: 'Only staff can close tickets.', flags: 64 });
         }
 
-        try {
+
+        const ok = await withCloseLock(interaction.channelId, async () => {
           if (!interaction.deferred && !interaction.replied) {
-            await interaction.deferReply({ flags: 64 });
+            await interaction.deferReply({ flags: 64 }).catch(() => {});
           }
 
-          const sorted = await fetchAllMessages(interaction.channel, 5000);
-          const logLines = [];
-          for (const msg of sorted) {
-            const ts = new Date(msg.createdTimestamp).toLocaleString();
-            const author = msg.author?.tag || msg.author?.id || 'Unknown';
-            const body = formatMessageForTranscript(msg);
-            logLines.push(`[${ts}] ${author}: ${body}`);
+          const ch = await fetchFreshChannelById(interaction.client, interaction.channelId);
+          if (!ch) {
+            return interaction.editReply({ content: 'Channel no longer exists; nothing to close.'}).catch(() => {});
           }
 
-          const channelName = interaction.channel.name.toLowerCase();
+          let logLines = [];
+          try {
+            const msgs = await fetchAllMessages(ch, 5000);
+            for (const msg of msgs) {
+              const ts = new Date(msg.createdTimestamp).toLocaleString();
+              const author = msg.author?.tag || msg.author?.id || 'Unknown';
+              const body = formatMessageForTranscript(msg);
+              logLines.push(`[${ts}] ${author}: ${body}`);
+            }
+          } catch (e) {
+            console.error('Transcript build failed:', e);
+          }
 
+          const channelName = (ch.name || '').toLowerCase();
           let department = null;
-          const match = Object.entries(ticketNameMap).find(([, shortName]) =>
-            channelName.startsWith(shortName)
-          );
+          const match = Object.entries(ticketNameMap).find(([, shortName]) => channelName.startsWith(shortName));
           if (match) {
             const [matchedCustomId] = match;
             department = matchedCustomId.split('_')[0].replace('ticket-', '');
             if (department === 'owner') department = 'ownership';
           }
-
           if (!department) {
-            if (channelName.startsWith('private-operations-')) {
-              department = 'operations';
-            } else if (channelName.startsWith('private-staffing-')) {
-              department = 'staffing';
-            } else {
+            if (channelName.startsWith('private-operations-')) department = 'operations';
+            else if (channelName.startsWith('private-staffing-')) department = 'staffing';
+            else {
               const maybe = Object.keys(DEPARTMENT_ROLES).find(d => channelName.startsWith(d));
               if (maybe) department = maybe;
             }
           }
 
-          const logChannelID = LOG_CHANNEL_MAP[interaction.guild.id]?.[department];
-          const logChannel = logChannelID ? interaction.guild.channels.cache.get(logChannelID) : null;
+          let logChannel = null;
+          try {
+            const logChannelID = LOG_CHANNEL_MAP[interaction.guild?.id || '']?.[department];
+            if (logChannelID) {
+              const candidate = interaction.guild?.channels.cache.get(logChannelID);
+              if (candidate?.isTextBased?.()) logChannel = candidate;
+            }
+          } catch { /* noop */ }
 
-          const chunks = splitIntoChunks(logLines.join('\n'), 1900);
-
-          if (logChannel) {
-            await logChannel.send(`**Ticket Closed.** Transcript for \`${interaction.channel.name}\` (${sorted.length} messages):`);
-            for (const chunk of chunks) {
-              await logChannel.send({ content: `\`\`\`\n${chunk}\n\`\`\``});
-              await new Promise(r => setTimeout(r, 250));
+          if (logChannel && logLines.length) {
+            try {
+              await logChannel.send(`**Ticket Closed** Transcript for \`${ch.name}\` (${logLines.length} messages):`);
+              const chunks = splitIntoChunks(logLines.join('\n'), 1900);
+              for (const c of chunks) {
+                await logChannel.send({ content: `\`\`\`\n${c}\n\`\`\`` });
+                await new Promise(r => setTimeout(r, 250));
+              }
+            } catch (e) {
+              console.error('Transcript send failed:', e);
             }
           }
 
-          Store.markResolved({ ticket_id: interaction.channel.id });
+          try { Store.markResolved({ ticket_id: ch.id }); } catch (e) { console.error('markResolved failed:', e); }
 
-          await interaction.editReply({ content: `Closing Ticket... <@${interaction.user.id}>` });
-          safeDeleteChannel(interaction.channel, 3000);
-          return;
-        } catch (err) {
-          console.error('Error in confirm-close', err);
-          if (interaction.deferred && !interaction.replied) {
-            await interaction.editReply({ content: 'Something went wrong trying to close this ticket.' });
-          } else if (!interaction.replied) {
-            await interaction.reply({ content: 'Something went wrong trying to close this ticket.', flags: 64 });
-          }
+          await interaction.editReply({ content: `Closing ticket...` }).catch(() => {});
+          safeDeleteChannel(ch, 3000);
+        });
+
+        if (!ok) {
+          return interaction.reply({ content: 'Another close action is already in progress.', flags: 64 });
         }
         return;
       }

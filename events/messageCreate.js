@@ -1,7 +1,15 @@
-const { Events, PermissionsBitField, EmbedBuilder } = require('discord.js');
+const { Events, PermissionsBitField, EmbedBuilder, ChannelType } = require('discord.js');
 
-const USER_RESPONSE_CATEGORY = '1379866359835529247';
-const STAFF_RESPONSE_CATEGORY = '1379866454236725318';
+const RESPONSE_CATEGORY_MAP = {
+    '1269762250219192491': {
+        user: '1379866359835529247',
+        staff: '1379866454236725318',
+    },
+    '1345572181723320422': {
+        user: '1359351434063253626',
+        staff: '1359351434063253626',
+    },
+};
 
 const DEPARTMENT_ROLES = {
     relations: '1278693098469457920',
@@ -39,6 +47,26 @@ const APPEALS_INVITE = process.env.APPEALS_INVITE;
 const HONEYPOT_DELETE_WINDOW = 604800;
 
 // ===Helper===
+async function moveTicketIfNeeded(message, isStaffResponder) {
+    const { guild, channel } = message;
+    const cfg = RESPONSE_CATEGORY_MAP[guild.id] || {};
+    const targetId = isStaffResponder ? cfg.user : cfg.staff;
+    if (!targetId) return;
+
+    const parent = guild.channels.cache.get(targetId);
+    if (!parent || parent.type !== ChannelType.GuildCategory) {
+        console.warn('Missing / Invalid response category', { guild: guild.id, targetId });
+        return;
+    }
+    if (channel.parentId === parent.id) return;
+
+    try {
+        await channel.setParent(parent, { lockPermissions: false });
+    } catch (e) {
+        console.error('setParent failed', { guild: guild.id, channel: channel.id, targetId }, e);
+    }
+}
+
 async function sweepRecentMessagesByUser(guild, userId, perChannelPeek = 200) {
     let totalDeleted = 0;
 
@@ -226,56 +254,54 @@ module.exports = {
         if (!member) return;
 
         const isStaff = Object.values(DEPARTMENT_ROLES).some(roleId => member.roles.cache.has(roleId));
-        const newParentId = isStaff ? USER_RESPONSE_CATEGORY : STAFF_RESPONSE_CATEGORY;
 
-        if (channel.parentId !== newParentId) {
-            await channel.setParent(newParentId, { lockPermissions: false }).catch(console.error);
+        await moveTicketIfNeeded(message, isStaff);
 
-            const ticketOwnerId = channel.permissionOverwrites.cache.find(p =>
-                p.allow.has(PermissionsBitField.Flags.ViewChannel) && p.type === 1
-            )?.id;
 
-            if (!ticketOwnerId) return;
+        const ticketOwnerId = channel.permissionOverwrites.cache.find(p =>
+            p.allow.has(PermissionsBitField.Flags.ViewChannel) && p.type === 1
+        )?.id;
 
-            const prefix = channel.name.split('-')[0];
-            const department = {
-                famactions: 'operations',
-                rolealterations: 'operations',
-                findrole: 'operations',
-                roleappeal: 'operations',
-                roleapp: 'operations',
-                hofapp: 'staffing',
-                reportuser: 'staffing',
-                requestin: 'staffing',
-                strikeappeal: 'staffing',
-                partnership: 'relations',
-                claimprize: 'relations',
-                feedback: 'relations',
-                booster: 'relations',
-                reportadmin: 'ownership',
-                activityappeal: 'ownership',
-                adminappeal: 'ownership',
-                famapps: 'ownership',
-                other: 'ownership'
-            }[prefix];
+        if (!ticketOwnerId) return;
 
-            const staffRoleId = DEPARTMENT_ROLES[department];
-            if (!staffRoleId) return;
+        const prefix = channel.name.split('-')[0];
+        const department = {
+            famactions: 'operations',
+            rolealterations: 'operations',
+            findrole: 'operations',
+            roleappeal: 'operations',
+            roleapp: 'operations',
+            hofapp: 'staffing',
+            reportuser: 'staffing',
+            requestin: 'staffing',
+            strikeappeal: 'staffing',
+            partnership: 'relations',
+            claimprize: 'relations',
+            feedback: 'relations',
+            booster: 'relations',
+            reportadmin: 'ownership',
+            activityappeal: 'ownership',
+            adminappeal: 'ownership',
+            famapps: 'ownership',
+            other: 'ownership'
+        }[prefix];
 
-            await channel.permissionOverwrites.set([
-                {
-                    id: guild.id,
-                    deny: [PermissionsBitField.Flags.ViewChannel]
-                },
-                {
-                    id: ticketOwnerId,
-                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
-                },
-                {
-                    id: staffRoleId,
-                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
-                }
-            ]).catch(() => {});
-        }
+        const staffRoleId = DEPARTMENT_ROLES[department];
+        if (!staffRoleId) return;
+
+        await channel.permissionOverwrites.set([
+            {
+                id: guild.id,
+                deny: [PermissionsBitField.Flags.ViewChannel]
+            },
+            {
+                id: ticketOwnerId,
+                allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
+            },
+            {
+                id: staffRoleId,
+                allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
+            }
+        ]).catch(() => {});
     }
 };
